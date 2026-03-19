@@ -1,0 +1,13 @@
+from building import *
+
+cwd = GetCurrentDir()
+src = []
+CPPPATH = [cwd + '/../include']
+group = []
+
+src = src + ['pm.c']
+
+if len(src):
+    group = DefineGroup('DeviceDrivers', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')
