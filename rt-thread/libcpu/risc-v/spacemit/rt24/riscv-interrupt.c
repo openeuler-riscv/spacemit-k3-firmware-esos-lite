@@ -30,7 +30,7 @@ void rt_hw_interrupt_init(void)
 
     for (; idx < SOC_INT_MAX; idx++)
     {
-        isr_irq_table[idx].handler = (rt_isr_handler_t)rt_hw_interrupt_handle;
+        isr_irq_table[idx].handler = /* (rt_isr_handler_t)rt_hw_interrupt_handle */ RT_NULL;
         isr_irq_table[idx].param = RT_NULL;
 
 	__plic_set_priority(idx, 1);
