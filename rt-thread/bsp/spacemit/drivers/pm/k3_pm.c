@@ -7,7 +7,6 @@
 #include <riscv_encoding.h>
 #include <clint.h>
 #include <riscv-plic.h>
-#include <stdlib.h>
 #include <spacemit_sdk_soc.h>
 #include <register_defination.h>
 
