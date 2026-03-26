@@ -52,3 +52,7 @@ Mkfile.old
 dkms.conf
 
 sample
+
+rt-thread/bsp/spacemit/.config
+rt-thread/bsp/spacemit/.esos_top.config
+
