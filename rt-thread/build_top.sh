@@ -57,6 +57,14 @@ function config_sdk()
 	cp ../../../bsp/spacemit/.esos_top.config ${TOP_ESOS_BASE_LITE_DEFCONF} 
 	source ${TOP_ESOS_BASE_LITE_DEFCONF}
 
+	if [ "x${TOP_TARGET_CHIP}" = "xrt24" ]; then
+		if [ ! -d "${TOP_LITE_DIR}/../../../tools/toolchain/spacemit-toolchain-elf-newlib-x86_64-v1.0.9" ]; then
+			cd ${TOP_LITE_DIR}/../../../tools/toolchain/
+			tar -xf ${TOP_LITE_DIR}/../../../tools/toolchain/spacemit-toolchain-elf-newlib-x86_64-v1.0.9.tar.xz
+			cd -
+		fi
+	fi
+
 	# create the rtconfig.h, it will be updated
 	touch ${TOP_LITE_DIR}/bsp/spacemit/rtconfig.h
 }
