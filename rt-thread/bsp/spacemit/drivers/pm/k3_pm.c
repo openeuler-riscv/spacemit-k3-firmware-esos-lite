@@ -15,6 +15,18 @@ ALIGN(RT_ALIGN_SIZE)
 static rt_uint8_t rt_lpw_stack[1024];
 static struct rt_semaphore system_lpm_sem;
 
+#define GPIO1_PIN_LEVEL_REG	(0xd4019040)
+
+static inline int GET_DDR_TYPE(void)
+{
+	/*
+	 * using gpio52 to select the lp4 or pl5
+	 * lp4: level high
+	 * lp5: level low
+	 */
+	return ((readl((unsigned int *)GPIO1_PIN_LEVEL_REG) >> 20) & 0x1);
+}
+
 static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t context)
 {
 	unsigned int val;
@@ -405,7 +417,7 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 		REG32(DDRC_BASE + 0x00010510) |= (0x1);
 		REG32(DDRC_BASE + 0x00010288) |= (0x1);
 
-		if(/* GET_DDR_TYPE() */0) {
+		if(GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) |= (0x1<<15);
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 
@@ -424,7 +436,7 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 
 		REG32(DDRC_BASE + 0x00010288) &= ~(0x1);
 
-		if(/* !GET_DDR_TYPE() */1) {
+		if(!GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 		}
 
@@ -466,7 +478,7 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 		REG32(DDRC_BASE + 0x00010510) |= (0x1);
 		REG32(DDRC_BASE + 0x00010288) |= (0x1);
 
-		if(/* GET_DDR_TYPE() */0) {
+		if(GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) |= (0x1<<15);
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 
@@ -485,7 +497,7 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 
 		REG32(DDRC_BASE + 0x00010288) &= ~(0x1);
 
-		if(/* !GET_DDR_TYPE() */1) {
+		if(!GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 		}
 
@@ -612,7 +624,7 @@ static void __spacemit_wakeup_asm(void)
 		REG32(DDRC_BASE + 0x00010510) |= (0x1);
 		REG32(DDRC_BASE + 0x00010288) |= (0x1);
 
-		if(/* GET_DDR_TYPE() */0) {
+		if(GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) |= (0x1<<15);
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 
@@ -631,7 +643,7 @@ static void __spacemit_wakeup_asm(void)
 
 		REG32(DDRC_BASE + 0x00010288) &= ~(0x1);
 
-		if(/* !GET_DDR_TYPE() */1) {
+		if(!GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 		}
 
@@ -673,7 +685,7 @@ static void __spacemit_wakeup_asm(void)
 		REG32(DDRC_BASE + 0x00010510) |= (0x1);
 		REG32(DDRC_BASE + 0x00010288) |= (0x1);
 
-		if(/* GET_DDR_TYPE() */0) {
+		if(GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) |= (0x1<<15);
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 
@@ -692,7 +704,7 @@ static void __spacemit_wakeup_asm(void)
 
 		REG32(DDRC_BASE + 0x00010288) &= ~(0x1);
 
-		if(/* !GET_DDR_TYPE() */1) {
+		if(!GET_DDR_TYPE()) {
 			REG32(DDRC_BASE + 0x00010180) &= ~(0x1<<11);
 		}
 
