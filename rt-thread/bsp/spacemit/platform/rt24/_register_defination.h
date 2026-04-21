@@ -170,8 +170,10 @@ typedef volatile union rt24_core0_idle_cfg_reg {
 #define SCCR_REG			(0xd4050038)
 
 /* wakeup5 usb/rcpu(audio)/ap2audio_ipc */
-#define USB_RAUD_APAUD_WKUP_BIT_OFFSET	(5)
-#define PMIC_WKUP_BIT_OFFSET		(7)
-#define RTC_ALARM_BIT_OFFSET		(17)
+#define USB_RAUD_APAUD_WKUP_BIT_OFFSET	(1 << 5)
+#define PMIC_WKUP_BIT_OFFSET		(1 << 7)
+#define RTC_ALARM_BIT_OFFSET		(1 << 17)
+#define EDGEDECT_WKUP_BIT_OFFSET	(1 << 0)
+#define PCIE_WKUP_BIT_OFFSET		((1 << 25) | (1 << 6))
 
 #endif

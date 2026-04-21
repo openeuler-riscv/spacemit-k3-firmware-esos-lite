@@ -277,8 +277,9 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 	REG32((unsigned int *)APCR_PER_VETE_REG) |= APCR_PER_DEFAULT_VATE_VALUE;
 
 	/* enable wakeup source */
-	REG32((unsigned int *)AWUCRM_REG) |= (1 << PMIC_WKUP_BIT_OFFSET) |
-					     (1 << USB_RAUD_APAUD_WKUP_BIT_OFFSET);
+	REG32((unsigned int *)AWUCRM_REG) |= (USB_RAUD_APAUD_WKUP_BIT_OFFSET | PMIC_WKUP_BIT_OFFSET
+		| RTC_ALARM_BIT_OFFSET | EDGEDECT_WKUP_BIT_OFFSET | 
+		PCIE_WKUP_BIT_OFFSET);
 
 	/* SCCR */
 	REG32((unsigned int *)SCCR_REG) = 0x5;
