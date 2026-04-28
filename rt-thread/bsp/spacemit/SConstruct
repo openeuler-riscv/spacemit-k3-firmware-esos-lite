@@ -1,33 +1,112 @@
 import os
 import sys
+import shutil
+import glob
+import subprocess
+
+SDK_ROOT = os.getcwd()
+PLATFORM_DIR = "platform"
+BSP_CONFIG = ".config"
+OUTPUT_DIR = "../../../../../bsp/spacemit/binary"
+TARGET_CHIP = "rt24"
+TARGET_DEFCONFIG = os.path.join(PLATFORM_DIR, TARGET_CHIP, "%s_defconfig" % TARGET_CHIP)
+
+
+def select_entry_point(chip):
+    if chip == "rt24":
+        return "0x0"
+    raise RuntimeError("No valid entry point")
+
+
+def preprocess_environment():
+    if not os.path.exists(TARGET_DEFCONFIG):
+        raise RuntimeError("defconfig not found: %s" % TARGET_DEFCONFIG)
+
+    if os.path.exists(BSP_CONFIG):
+        os.remove(BSP_CONFIG)
+
+    shutil.copy(TARGET_DEFCONFIG, BSP_CONFIG)
+
+    if not os.path.exists("rtconfig.h"):
+        open("rtconfig.h", "a").close()
+
+    entry_point = select_entry_point(TARGET_CHIP)
+
+    os.environ["TARGET_CHIP_LITE"] = TARGET_CHIP
+    os.environ["TARGET_ENTRY_POINT_LITE"] = entry_point
+
+    return {
+        "chip": TARGET_CHIP,
+        "entry": entry_point,
+        "defconfig": os.path.basename(TARGET_DEFCONFIG),
+    }
+
+
+PROFILE = preprocess_environment()
+
+if not GetOption("clean") and not GetOption("help"):
+    try:
+        git_hash = subprocess.check_output(
+            "git log -1 --format=%h", shell=True
+        ).decode().strip()
+    except Exception:
+        git_hash = "unknown"
+
+    ver_file = os.path.join("platform", "version_id_gen.cc")
+    if not os.path.exists("platform"):
+        os.makedirs("platform")
+    with open(ver_file, "w") as f:
+        f.write(
+            'struct version_id __versionid spacemit_verid = '
+            '{ .verid="%s:%s", };\n' % (PROFILE["chip"], git_hash)
+        )
+
 import rtconfig
 
-if os.getenv('RTT_ROOT'):
-    RTT_ROOT = os.getenv('RTT_ROOT')
+if os.getenv("RTT_ROOT"):
+    RTT_ROOT = os.getenv("RTT_ROOT")
 else:
-    RTT_ROOT = os.path.normpath(os.getcwd() + '/../..')
+    RTT_ROOT = os.path.normpath(os.getcwd() + "/../..")
 
-sys.path = sys.path + [os.path.join(RTT_ROOT, 'tools')]
+sys.path.insert(0, os.path.join(RTT_ROOT, "tools"))
+sys.path += [os.path.join(RTT_ROOT, "tools")]
 from building import *
 
-TARGET = 'esos_lite-' + str(rtconfig.CPU) + '.' + str(rtconfig.TARGET_EXT)
+env = Environment(
+    tools=["mingw"],
+    AS=rtconfig.AS, ASFLAGS=rtconfig.AFLAGS,
+    CC=rtconfig.CC, CCFLAGS=rtconfig.CFLAGS,
+    CXX=rtconfig.CXX, CXXFLAGS=rtconfig.CXXFLAGS,
+    AR=rtconfig.AR, ARFLAGS="-rc",
+    LINK=rtconfig.LINK, LINKFLAGS=rtconfig.LFLAGS
+)
 
-env  = Environment(tools = ['mingw'],
-AS   = rtconfig.AS,   ASFLAGS   = rtconfig.AFLAGS,
-CC   = rtconfig.CC,   CCFLAGS   = rtconfig.CFLAGS,
-CXX  = rtconfig.CXX,  CXXFLAGS  = rtconfig.CXXFLAGS,
-AR   = rtconfig.AR,   ARFLAGS   = '-rc',
-LINK = rtconfig.LINK, LINKFLAGS = rtconfig.LFLAGS)
-env.PrependENVPath('PATH', rtconfig.EXEC_PATH)
+env.PrependENVPath("PATH", rtconfig.EXEC_PATH)
+env["LINKCOM"] = "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS -Wl,--start-group $_LIBFLAGS -Wl,--end-group"
 
-# add --start-group and --end-group for GNU GCC
-env['LINKCOM'] = '$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS -Wl,--start-group $_LIBFLAGS -Wl,--end-group'
+Export("RTT_ROOT")
+Export("rtconfig")
 
-Export('RTT_ROOT')
-Export('rtconfig')
-
-# prepare building environment
 objs = PrepareBuilding(env, RTT_ROOT, has_libcpu=False)
 
-# make a building
+TARGET = "esos_lite-" + str(rtconfig.CPU) + "." + str(rtconfig.TARGET_EXT)
 DoBuilding(TARGET, objs)
+
+
+def post_build_action(target, source, env):
+    if GetOption("clean"):
+        return
+
+    if not os.path.isdir(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+
+    for output in glob.glob("esos_lite*"):
+        if os.path.isdir(output):
+            continue
+        dst = os.path.join(OUTPUT_DIR, os.path.basename(output))
+        if os.path.exists(dst):
+            os.remove(dst)
+        shutil.copy(output, dst)
+
+
+env.AddPostAction(TARGET, post_build_action)

@@ -28,7 +28,7 @@ if CPU == 'rt24':
         EXEC_PATH   = os.getcwd() + '/../../../../../tools/toolchain/spacemit-toolchain-elf-newlib-x86_64-v1.0.9/bin'
 
     # toolchains
-    PREFIX  = 'riscv64-unknown-elf-'
+    PREFIX  = os.getenv('RTT_CC_PREFIX') or 'riscv64-unknown-elf-'
     CC      = PREFIX + 'gcc'
     CXX     = PREFIX + 'gcc'
     AS      = PREFIX + 'gcc'
