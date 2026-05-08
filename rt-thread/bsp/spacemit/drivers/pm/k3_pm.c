@@ -524,6 +524,10 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 		REG32(DDRC_BASE + 0x00010c80 ) = 0x00000001;
 	}
 
+	retry = 614000 * 50;
+	while (--retry)
+		asm volatile ("nop");
+
 	/* de-vote */
 	REG32((unsigned int *)APCR_PER_VETE_REG) &= ~APCR_PER_DEFAULT_VATE_VALUE;
 
@@ -733,6 +737,10 @@ static void __spacemit_wakeup_asm(void)
 
 	/* de-vote */
 	REG32((unsigned int *)APCR_PER_VETE_REG) &= ~APCR_PER_DEFAULT_VATE_VALUE;
+
+	retry = 614000 * 50;
+	while (--retry)
+		asm volatile ("nop");
 
 	__cpu_resume_enter(0);
 }
