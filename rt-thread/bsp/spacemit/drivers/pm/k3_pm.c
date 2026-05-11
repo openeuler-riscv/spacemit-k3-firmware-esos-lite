@@ -9,6 +9,9 @@
 #include <riscv-plic.h>
 #include <spacemit_sdk_soc.h>
 #include <register_defination.h>
+#include "md5_sum.h"
+
+#define DDR_DATA_CHECK		(0)
 
 static struct rt_thread rt_lpm_thread;
 ALIGN(RT_ALIGN_SIZE)
@@ -16,6 +19,11 @@ static rt_uint8_t rt_lpw_stack[1024];
 static struct rt_semaphore system_lpm_sem;
 
 #define GPIO1_PIN_LEVEL_REG	(0xd4019040)
+
+#if (DDR_DATA_CHECK)
+static unsigned char _pre_md5[16];
+static unsigned char _after_md5[16];
+#endif
 
 static inline int GET_DDR_TYPE(void)
 {
@@ -34,6 +42,13 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 	unsigned int CFG_BASE;
 	unsigned int DDRC_BASE;
 	unsigned int retry = 100000;
+#if (DDR_DATA_CHECK)
+	MD5_CTX ctx;
+
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (void *)0x100200000, 1024 * 1024 * 3);
+	MD5_Final(_pre_md5, &ctx);
+#endif
 
 	/* set the rcpu entery point */
 	writel(entry & 0xffffffff, (void *)RCPU_CORE0_BOOT_ENTRY_LO);
@@ -883,10 +898,20 @@ static void rt_thread_system_lpm_entry(void *parameter)
 	rt_base_t level;
 	typedef void (*__entry)(void);
 	__entry ptr;
-
+#if (DDR_DATA_CHECK)
+	MD5_CTX ctx;
+#endif
 	while (1) {
 		rt_sem_take(&system_lpm_sem, RT_WAITING_FOREVER);
 
+#if (DDR_DATA_CHECK)
+		MD5_Init(&ctx);
+		MD5_Update(&ctx, (void *)0x100200000, 1024 * 1024 * 3);
+		MD5_Final(_after_md5, &ctx);
+
+		if (rt_strncmp(_pre_md5, _after_md5, 16) != 0)
+			asm volatile ("j .");
+#endif
 		/* disable the irq */
 		level = rt_hw_interrupt_disable();
 
