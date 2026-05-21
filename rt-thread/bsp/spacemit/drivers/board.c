@@ -6,9 +6,20 @@
 
 #include <rthw.h>
 #include <rtthread.h>
+#include <clint.h>
+#include <spacemit_sdk_soc.h>
 
 void rt_hw_us_delay(rt_uint32_t us)
 {
+	rt_uint64_t _start;
+	rt_uint64_t _delte;
+
+	_start = SysTimer_GetLoadValue();
+
+	_delte = (rt_uint64_t)us * (SOC_TIMER_FREQ) / 1000000;
+
+	while ((SysTimer_GetLoadValue() - _start) < _delte)
+		asm volatile ("nop");
 }
 
 /**
