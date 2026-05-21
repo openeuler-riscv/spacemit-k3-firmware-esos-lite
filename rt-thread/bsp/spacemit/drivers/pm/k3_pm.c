@@ -24,30 +24,10 @@ static unsigned char _pre_md5[16];
 static unsigned char _after_md5[16];
 #endif
 
-static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t context)
+static inline void __suspend_hw_process(void)
 {
 	unsigned int val;
-	unsigned int read_data;
-	unsigned int CFG_BASE;
-	unsigned int DDRC_BASE;
 	unsigned int retry = 100000;
-#if (DDR_DATA_CHECK)
-	MD5_CTX ctx;
-
-	MD5_Init(&ctx);
-	MD5_Update(&ctx, (void *)0x100200000, 1024 * 1024 * 3);
-	MD5_Final(_pre_md5, &ctx);
-#endif
-
-	/* set the rcpu entery point */
-	writel(entry & 0xffffffff, (void *)RCPU_CORE0_BOOT_ENTRY_LO);
-	writel((entry >> 32) & 0xffffffff, (void *)RCPU_CORE0_BOOT_ENTRY_HI);
-
-	/* must add fence */
-	asm volatile ("fence iorw, iorw");
-
-	lp45_enter_lp2(DDRC0_REG_BASE);
-	lp45_enter_lp2(DDRC1_REG_BASE);
 
 	/* vote per */
 	REG32((unsigned int *)APCR_PER_VETE_REG) |= APCR_PER_DEFAULT_VATE_VALUE;
@@ -79,9 +59,7 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 	while (1) {
 		if (((val >> 8) & 0xf) == 0x6)
 			break;
-
 		val = REG32((unsigned int *)RT24_PMU_STATUS);
-
 		if ((--retry) == 0)
 			break;
 	}
@@ -96,33 +74,12 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 	}
 
 	REG32((unsigned int *)SOC_TOP_D2_LP_CTRL) &= ~(1 << 2);
+}
 
-	/*
-	 * increase the priority of D2 wakeup interrupt
-	 */
-	__plic_set_priority(D2_WAKEUP_EN_IRQ_NUM, 2);
-	/* Enable D2 wakeup interrupt */
-	__plic_irq_enable(D2_WAKEUP_EN_IRQ_NUM);
-	/* Enable M2 exit interrupt */
-	__plic_irq_enable(AP_C0_M2_EXIT_INT_NUM);
-
-	asm volatile ("fence iorw, iorw");
-	asm volatile ("fence.i");
-
-	/* wfi */
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile ("wfi");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-
-	retry = 100000;
+static inline void __resume_hw_process(void)
+{
+	unsigned int val;
+	unsigned int retry = 100000;
 
 	/* wait top wakeup */
 	while (1) {
@@ -156,9 +113,6 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 			break;
 	}
 
-	/* disable plic D2 ext interrupt */
-	__plic_irq_disable(D2_WAKEUP_EN_IRQ_NUM);
-
 	/* audio main pmu de-vote */
 	REG32((unsigned int *)AUDIO_VOTE_FOR_MAIN_PMU) &= ~(0xff);
 
@@ -175,6 +129,65 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 			break;
 	}
 
+	/* de-vote */
+	REG32((unsigned int *)APCR_PER_VETE_REG) &= ~APCR_PER_DEFAULT_VATE_VALUE;
+}
+
+static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t context)
+{
+	unsigned int val;
+	unsigned int retry = 100000;
+
+#if (DDR_DATA_CHECK)
+	MD5_CTX ctx;
+
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (void *)0x100200000, 1024 * 1024 * 3);
+	MD5_Final(_pre_md5, &ctx);
+#endif
+
+	/* set the rcpu entery point */
+	writel(entry & 0xffffffff, (void *)RCPU_CORE0_BOOT_ENTRY_LO);
+	writel((entry >> 32) & 0xffffffff, (void *)RCPU_CORE0_BOOT_ENTRY_HI);
+
+	/* must add fence */
+	asm volatile ("fence iorw, iorw");
+
+	lp45_enter_lp2(DDRC0_REG_BASE);
+	lp45_enter_lp2(DDRC1_REG_BASE);
+
+	__suspend_hw_process();
+
+	/*
+	 * increase the priority of D2 wakeup interrupt
+	 */
+	__plic_set_priority(D2_WAKEUP_EN_IRQ_NUM, 2);
+	/* Enable D2 wakeup interrupt */
+	__plic_irq_enable(D2_WAKEUP_EN_IRQ_NUM);
+	/* Enable M2 exit interrupt */
+	__plic_irq_enable(AP_C0_M2_EXIT_INT_NUM);
+
+	asm volatile ("fence iorw, iorw");
+	asm volatile ("fence.i");
+
+	/* wfi */
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile ("wfi");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+
+	__resume_hw_process();
+
+	/* disable plic D2 ext interrupt */
+	__plic_irq_disable(D2_WAKEUP_EN_IRQ_NUM);
+
 	/* disable M2 exit interrupt which will be consumed by big-os */
 	__plic_irq_disable(AP_C0_M2_EXIT_INT_NUM);
 
@@ -184,9 +197,6 @@ static int __suspend_asm_finish(rt_ubase_t arg, rt_ubase_t entry, rt_ubase_t con
 	retry = 614000 * 50;
 	while (--retry)
 		asm volatile ("nop");
-
-	/* de-vote */
-	REG32((unsigned int *)APCR_PER_VETE_REG) &= ~APCR_PER_DEFAULT_VATE_VALUE;
 
 	return RT_EOK;
 }
@@ -206,75 +216,30 @@ static void suspend_restore_csrs(struct suspend_context *context)
 }
 
 extern int __cpu_suspend_enter(rt_ubase_t context);
-extern int __cpu_resume_enter_pre(rt_ubase_t context);
+extern int __pre_cpu_resume_enter(rt_ubase_t context);
 extern int __cpu_resume_enter(rt_ubase_t context);
 
 struct suspend_context context = { 0 };
 
-static void __spacemit_wakeup_asm(void)
+void __spacemit_wakeup_asm(void)
 {
-	unsigned int val;
-	unsigned int read_data;
-	unsigned int CFG_BASE;
-	unsigned int DDRC_BASE;
 	unsigned int retry = 100000;
 
-	/* wait top wakeup */
-	while (1) {
-		val = REG32((unsigned int *)SOC_TOP_D2_LP_CTRL);
-		if (val & (1 << 5))
-			break;
-		if ((--retry) == 0)
-			break;
-	}
+	__resume_hw_process();
 
-	/* clear the wakeup en pending, then the ap will wakeup */
-	REG32((unsigned int *)SOC_TOP_D2_LP_CTRL) |= (1 << 1);
-
-	for (int i = 0; i < 10; ++i) {};
-
-	REG32((unsigned int *)SOC_TOP_D2_LP_CTRL) &= ~(1 << 1);
-
-	retry = 100000;
-	while (1) {
-		val = REG32((unsigned int *)RT24_PMU_STATUS);
-		if (((val >> 8) & 0xf) == 0xd) {
-			/* Consume the interruption */
-			val = __plic_irq_claim();
-			__plic_irq_complete(val);
-			break;
-		}
-		if ((--retry) == 0)
-			break;
-	}
+	/* delay 20ms */
+	retry = 614000 * 20;
+	while (--retry)
+		asm volatile ("nop");
 
 	/* disable plic D2 ext interrupt */
 	__plic_irq_disable(D2_WAKEUP_EN_IRQ_NUM);
-
-	/* audio main pmu de-vote */
-	REG32((unsigned int *)AUDIO_VOTE_FOR_MAIN_PMU) &= ~(0xff);
-
-	/* devote core powrdown */
-	REG32((unsigned int *)RT24_CORE0_IDLE_CFG_REG) &= ~((1 << 0) | (1 << 1));
-
-	/* audio low power */
-	REG32((unsigned int *)AUDIO_PMU_VOTE_REG) &= ~((1 << 0) | (1 << 2));
-
-	/* wait core exit from M2 */
-	while (1) {
-		val = REG32((unsigned int *)AP_C0_M2_INT_EN_REG);
-		if (val & (1 << 5))
-			break;
-	}
 
 	/* disable the M2 exit interrupt and will be consumed by big-os */
 	__plic_irq_disable(AP_C0_M2_EXIT_INT_NUM);
 
 	lp45_exit_lp2(DDRC0_REG_BASE);
 	lp45_exit_lp2(DDRC1_REG_BASE);
-
-	/* de-vote */
-	REG32((unsigned int *)APCR_PER_VETE_REG) &= ~APCR_PER_DEFAULT_VATE_VALUE;
 
 	retry = 614000 * 50;
 	while (--retry)
@@ -300,7 +265,7 @@ int cpu_suspend(rt_ubase_t arg,
 	/* Save context on stack */
 	if (__cpu_suspend_enter((unsigned long)&context)) {
 		/* Call the finisher */
-		rc = finish(arg, (rt_ubase_t)__spacemit_wakeup_asm, (rt_ubase_t)&context);
+		rc = finish(arg, (rt_ubase_t)__pre_cpu_resume_enter, (rt_ubase_t)&context);
 
 		/*
 		 * Should never reach here, unless the suspend finisher
