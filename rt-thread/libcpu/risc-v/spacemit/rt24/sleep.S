@@ -17,6 +17,13 @@
 __sleep_sp_store:
     .space 8
 
+    .global _g_pre_resume_sp_base
+    .global _g_pre_resume_sp_top
+_g_pre_resume_sp_base:
+    .space 1024
+_g_pre_resume_sp_top:
+.align 8
+
 	.text
 
 .align 2
@@ -126,3 +133,46 @@ __cpu_resume_enter:
 
         /* Return to C code */
         ret
+
+.align 2
+.globl __pre_cpu_resume_enter
+__pre_cpu_resume_enter:
+	li x1, 0
+	li x2, 0
+	li x3, 0
+	li x4, 0
+	li x5, 0
+	li x6, 0
+	li x7, 0
+	li x8, 0
+	li x9, 0
+	li x10,0
+	li x11,0
+	li x12,0
+	li x13,0
+	li x14,0
+	li x15,0
+	li x16,0
+	li x17,0
+	li x18,0
+	li x19,0
+	li x20,0
+	li x21,0
+	li x22,0
+	li x23,0
+	li x24,0
+	li x25,0
+	li x26,0
+	li x27,0
+	li x28,0
+	li x29,0
+	li x30,0
+	li x31,0
+	fence.i
+
+	/* Disable Global Interrupt */
+	csrc CSR_MSTATUS, MSTATUS_MIE
+
+	/* set the sp */
+	la sp, _g_pre_resume_sp_top
+	call __spacemit_wakeup_asm
