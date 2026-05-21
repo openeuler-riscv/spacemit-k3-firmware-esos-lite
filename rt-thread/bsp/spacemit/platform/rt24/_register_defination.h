@@ -176,4 +176,7 @@ typedef volatile union rt24_core0_idle_cfg_reg {
 #define EDGEDECT_WKUP_BIT_OFFSET	(1 << 0)
 #define PCIE_WKUP_BIT_OFFSET		((1 << 25) | (1 << 6))
 
+#define DDRC0_REG_BASE		(0xcb000000)
+#define DDRC1_REG_BASE		(0xcc000000)
+
 #endif
