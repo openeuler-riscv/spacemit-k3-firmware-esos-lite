@@ -227,11 +227,6 @@ void __spacemit_wakeup_asm(void)
 
 	__resume_hw_process();
 
-	/* delay 20ms */
-	retry = 614000 * 20;
-	while (--retry)
-		asm volatile ("nop");
-
 	/* disable plic D2 ext interrupt */
 	__plic_irq_disable(D2_WAKEUP_EN_IRQ_NUM);
 
@@ -240,10 +235,6 @@ void __spacemit_wakeup_asm(void)
 
 	lp45_exit_lp2(DDRC0_REG_BASE);
 	lp45_exit_lp2(DDRC1_REG_BASE);
-
-	retry = 614000 * 50;
-	while (--retry)
-		asm volatile ("nop");
 
 	__cpu_resume_enter(0);
 }
